@@ -101,4 +101,5 @@ def fetch_fmp_data():
     progress_bar.empty()
     return pd.DataFrame(results)
 
-data = fetch_f
+data = fetch_fmp_data()
+
