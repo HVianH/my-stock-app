@@ -4,8 +4,8 @@ import yfinance as yf
 import plotly.express as px
 import time
 
-st.set_page_config(page_title="T-로봇 자산관리", layout="wide")
-st.title("🚀 T-로봇의 냉정한 자산 진단 (안정모드)")
+st.set_page_config(page_title="AI 자산관리", layout="wide")
+st.title("🚀 AI 자산 진단 (안정모드)")
 
 sheet_url = "https://docs.google.com/spreadsheets/d/1gkYeOJzu_T02sA2h01ukIT7pipvSj_iHqJMgtqKC4mk/export?format=csv"
 
@@ -74,3 +74,4 @@ try:
 
 except Exception as e:
     st.error("데이터를 불러오는 중 오류가 발생했습니다. 잠시 후 새로고침하세요.")
+
