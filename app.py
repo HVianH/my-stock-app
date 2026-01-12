@@ -3,15 +3,25 @@ import pandas as pd
 import yfinance as yf
 import plotly.express as px
 import time
-
-# 간단한 감성 분석 로직 (VADER 활용)
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+# AI 감성 분석기 초기화
 analyzer = SentimentIntensityAnalyzer()
 
-st.set_page_config(page_title="AI 실시간 분석기", layout="wide")
+st.set_page_config(page_title="AI 실시간 투자 분석기", layout="wide")
 st.title("🤖 AI 뉴스-밸류에이션 통합 분석 시스템")
+st.markdown("---")
 
 sheet_url = "https://docs.google.com/spreadsheets/d/1gkYeOJzu_T02sA2h01ukIT7pipvSj_iHqJMgtqKC4mk/export?format=csv"
+
+# 섹터 한글 매핑
+SECTOR_MAP = {
+    'Technology': '기술주', 'Communication Services': '통신 서비스',
+    'Consumer Cyclical': '경기 소비재', 'Financial Services': '금융',
+    'Healthcare': '헬스케어', 'Consumer Defensive': '필수 소비재',
+    'Energy': '에너지', 'Industrials': '산업재', 'Basic Materials': '기초 소재',
+    'Real Estate': '부동산', 'Utilities': '유틸리티', 'N/A': '기타/ETF'
+}
 
 @st.cache_data(ttl=1800)
 def fetch_ai_analysis():
@@ -21,38 +31,39 @@ def fetch_ai_analysis():
     
     for i, row in df.iterrows():
         ticker = str(row['티커']).strip().upper()
-        status_text.text(f"📡 {ticker} 실시간 뉴스 및 지표 분석 중...")
+        status_text.text(f"📡 AI가 {ticker}의 뉴스 및 지표를 정밀 분석 중...")
         
         try:
             tk = yf.Ticker(ticker)
-            # 1. 뉴스 데이터 가져오기 및 분석
+            # 1. 뉴스 감성 분석
             news = tk.news
-            news_sentiment = 0
+            sentiment_score = 0
             if news:
-                # 최근 3개 뉴스의 제목으로 감정 점수 평균 계산
                 scores = [analyzer.polarity_scores(n['title'])['compound'] for n in news[:3]]
-                news_sentiment = sum(scores) / len(scores)
+                sentiment_score = sum(scores) / len(scores)
             
-            # 2. 기본 지표 수집
+            # 2. 지표 수집
             info = tk.info
-            curr = tk.history(period="1d")['Close'].iloc[-1]
-            per = info.get('trailingPE', 0) or 0
+            hist = tk.history(period="1d")
+            curr = hist['Close'].iloc[-1] if not hist.empty else 0
+            per = info.get('trailingPE') or info.get('forwardPE') or 0
+            sector_en = info.get('sector', 'N/A')
+            sector_kr = SECTOR_MAP.get(sector_en, sector_en)
             
-            # 3. AI 종합 판정 로직 (뉴스 + PER)
+            # 3. AI 종합 판정 (뉴스 + PER)
             if per == 0:
                 opinion = "판단 유보 (지표 부족)"
-            elif per > 60 and news_sentiment < 0:
+            elif per > 55 and sentiment_score < 0:
                 opinion = "🛑 강력 매도 (고평가+악재)"
-            elif per > 60 and news_sentiment >= 0:
+            elif per > 55 and sentiment_score >= 0:
                 opinion = "⚠️ 과열 주의 (고평가+호재지속)"
-            elif per < 20 and news_sentiment > 0.2:
+            elif per < 25 and sentiment_score > 0.15:
                 opinion = "✅ 강력 매수 (저평가+호재)"
-            elif per < 20:
+            elif per < 25:
                 opinion = "💰 저평가 매수 구간"
             else:
                 opinion = "⚖️ 적정 가치 유지"
 
-            # 4. 환율 반영 계산
             buy_price = row['평단가_원']
             profit_rate = (((curr * 1450) - buy_price) / buy_price) * 100
             
@@ -63,9 +74,10 @@ def fetch_ai_analysis():
                 'PER': round(per, 2),
                 '수익률(%)': round(profit_rate, 2),
                 '평가금액(원)': int(curr * row['수량'] * 1450),
-                '뉴스지수': "긍정" if news_sentiment > 0.1 else "부정" if news_sentiment < -0.1 else "중립"
+                '섹터': sector_kr,
+                '뉴스지수': "긍정" if sentiment_score > 0.1 else "부정" if sentiment_score < -0.1 else "중립"
             })
-            time.sleep(1)
+            time.sleep(1) # 차단 방지
         except:
             continue
             
@@ -75,14 +87,21 @@ def fetch_ai_analysis():
 data = fetch_ai_analysis()
 
 if not data.empty:
-    st.metric("총 자산", f"{data['평가금액(원)'].sum():,} 원")
-    
-    # AI 판정 결과 요약
-    st.subheader("💡 AI 실시간 종목 진단")
-    for _, r in data.iterrows():
-        with st.expander(f"{r['종목']} : {r['AI 판정']}"):
-            st.write(f"현재 PER: {r['PER']} / 뉴스 심리: {r['뉴스지수']}")
-            st.write(f"수익률: {r['수익률(%)']}%")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("총 자산", f"{data['평가금액(원)'].sum():,} 원")
+    c2.metric("평균 수익률", f"{data['수익률(%)'].mean():.2f}%")
+    c3.metric("최고 성과", data.loc[data['수익률(%)'].idxmax(), '종목'])
 
-    st.subheader("📊 상세 데이터")
-    st.dataframe(data.sort_values('수익률(%)', ascending=False), use_container_width=True)
+    st.subheader("📊 섹터 비중 및 실시간 진단")
+    st.plotly_chart(px.pie(data, values='평가금액(원)', names='섹터', hole=0.4))
+
+    # 상세 표 출력 (AI 판정 열 포함)
+    st.subheader("🔍 AI 종합 분석 리스트")
+    st.dataframe(
+        data.sort_values('수익률(%)', ascending=False).style.format({
+            '평가금액(원)': '{:,}',
+            '수익률(%)': '{:+.2f}%',
+            'PER': '{:.2f}'
+        }), 
+        use_container_width=True
+    )
