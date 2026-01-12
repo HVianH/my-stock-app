@@ -62,7 +62,7 @@ try:
     # 차트와 표
     st.plotly_chart(px.pie(data, values='평가금액(원)', names='섹터', hole=0.4))
     
-    st.subheader("⚠️ T-로봇의 독설 경고")
+    st.subheader("⚠️ 경고")
     for _, r in data.iterrows():
         if r['수익률(%)'] > 100:
             st.error(f"🚨 {r['종목']}: 수익률 {r['수익률(%)']}%? 이건 운입니다. 당장 반이라도 파세요.")
@@ -74,4 +74,5 @@ try:
 
 except Exception as e:
     st.error("데이터를 불러오는 중 오류가 발생했습니다. 잠시 후 새로고침하세요.")
+
 
