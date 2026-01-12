@@ -4,8 +4,8 @@ import yfinance as yf
 import plotly.express as px
 import time
 
-st.set_page_config(page_title="T-로봇 자산관리", layout="wide")
-st.title("🚀 T-로봇의 냉정한 자산 진단 (최종판)")
+st.set_page_config(page_title="AI 자산관리", layout="wide")
+st.title("🚀 AI 자산 진단")
 
 sheet_url = "https://docs.google.com/spreadsheets/d/1gkYeOJzu_T02sA2h01ukIT7pipvSj_iHqJMgtqKC4mk/export?format=csv"
 
@@ -85,7 +85,7 @@ try:
     )
 
     # T-로봇 독설 섹션
-    st.subheader("🚨 T-로봇의 긴급 지시")
+    st.subheader("🚨 경고")
     for _, r in formatted_data.iterrows():
         if r['수익률(%)'] > 100:
             st.error(f"🔥 {r['종목']}: 수익률 {r['수익률(%)']}%... 이건 운입니다. 제발 절반은 팔아서 익절하세요!")
@@ -94,3 +94,4 @@ try:
 
 except Exception as e:
     st.error("데이터 로드 중 차단되었습니다. 5분 뒤에 새로고침하세요.")
+
